@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Infra.Redis.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using WebApi.Boundaries.UseCases;
@@ -20,25 +21,30 @@ public class WeatherForecastController : ControllerBase
 
 
     [HttpGet("add-cache")]
-    public async Task<IActionResult> AddAsync([FromServices] ICacheService cacheService, [FromServices] IGetWeatherForecastUseCase useCase)
+    public async Task<IActionResult> AddAsync([FromServices] ICacheService cacheService,
+        [FromServices] IGetWeatherForecastUseCase useCase)
     {
-        var key = $"{Prefix}:1";
+        for (int i = 0; i < 200000; i++)
+        {
+            var key = $"{Prefix}:{i}";
+            var output = await cacheService.GetOrSetAsync(
+                key,
+                async () => await useCase.Get());
+        }
 
-        var output = await cacheService.GetOrSetAsync(
-            key,
-            async () => await useCase.Get());
-
-
-        return Ok(output);
+        return Ok();
     }
-    
+
     [HttpGet("expire-cache")]
-    public async Task<IActionResult> ExpireAsync([FromServices] ICacheService cacheService, [FromServices] IGetWeatherForecastUseCase useCase)
+    public async Task<IActionResult> ExpireAsync([FromServices] ICacheService cacheService,
+        [FromServices] IGetWeatherForecastUseCase useCase)
     {
-        var key = $"{Prefix}:1";
+        var key = $"{Prefix}:";
 
-        await cacheService.ExpireAsync(key);
-
+        var stopWatch = new Stopwatch();
+        stopWatch.Start();
+        await cacheService.ExpireByPrefixInBatchAsync(key);
+        stopWatch.Stop();
 
         return Ok();
     }
